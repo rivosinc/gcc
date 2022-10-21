@@ -1100,4 +1100,11 @@ extern void riscv_remove_unneeded_save_restore_calls (void);
 
 #define TARGET_SUPPORTS_WIDE_INT 1
 
+#define RISCV_DWARF_VLENB (4096 + 0xc22)
+
+#define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER + 1 /* VLENB */)
+
+#define DWARF_REG_TO_UNWIND_COLUMN(REGNO) \
+  ((REGNO == RISCV_DWARF_VLENB) ? (FIRST_PSEUDO_REGISTER + 1) : REGNO)
+
 #endif /* ! GCC_RISCV_H */
