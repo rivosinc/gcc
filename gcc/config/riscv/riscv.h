@@ -174,7 +174,7 @@ ASM_MISA_SPEC
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY (TARGET_RVC ? 16 : 32)
+#define FUNCTION_BOUNDARY (TARGET_RVC && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) ? 32 : 16)
 
 /* The smallest supported stack boundary the calling convention supports.  */
 #define STACK_BOUNDARY \
@@ -1001,5 +1001,9 @@ extern void riscv_remove_unneeded_save_restore_calls (void);
   ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
 #define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
   ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE), 2)
+
+#ifndef USED_FOR_TARGET
+#include "config/riscv/riscv-zisslpcfi.h"
+#endif
 
 #endif /* ! GCC_RISCV_H */

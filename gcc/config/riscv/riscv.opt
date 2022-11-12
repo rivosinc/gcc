@@ -132,6 +132,16 @@ Target Bool Var(riscv_mrelax) Init(1)
 Take advantage of linker relaxations to reduce the number of instructions
 required to materialize symbol addresses.
 
+mzisslpcfi
+Target RejectNegative Alias(mzisslpcfi=, +1+check0+ss)
+
+mzisslpcfi=
+Target RejectNegative Joined Var(riscv_mzisslpcfi_string) Save
+Use shadow-stack landing-pad control flow integrity extension.
+
+TargetVariable
+unsigned riscv_zisslpcfi = 0
+
 Mask(64BIT)
 
 Mask(MUL)

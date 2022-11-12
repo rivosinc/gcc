@@ -149,6 +149,8 @@ static const struct riscv_ext_version riscv_ext_version_table[] =
   {"zifencei", ISA_SPEC_CLASS_20191213, 2, 0},
   {"zifencei", ISA_SPEC_CLASS_20190608, 2, 0},
 
+  {"zisslpcfi", ISA_SPEC_CLASS_NONE, 0, 1},
+
   {"zba", ISA_SPEC_CLASS_NONE, 1, 0},
   {"zbb", ISA_SPEC_CLASS_NONE, 1, 0},
   {"zbc", ISA_SPEC_CLASS_NONE, 1, 0},
@@ -1091,8 +1093,9 @@ static const riscv_ext_flag_table_t riscv_ext_flag_table[] =
   {"c", &gcc_options::x_target_flags, MASK_RVC},
   {"v", &gcc_options::x_target_flags, MASK_VECTOR},
 
-  {"zicsr",    &gcc_options::x_riscv_zi_subext, MASK_ZICSR},
-  {"zifencei", &gcc_options::x_riscv_zi_subext, MASK_ZIFENCEI},
+  {"zicsr",     &gcc_options::x_riscv_zi_subext, MASK_ZICSR},
+  {"zifencei",  &gcc_options::x_riscv_zi_subext, MASK_ZIFENCEI},
+  {"zisslpcfi", &gcc_options::x_riscv_zi_subext, MASK_ZISSLPCFI},
 
   {"zba",    &gcc_options::x_riscv_zb_subext, MASK_ZBA},
   {"zbb",    &gcc_options::x_riscv_zb_subext, MASK_ZBB},

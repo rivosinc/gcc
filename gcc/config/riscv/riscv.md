@@ -69,6 +69,18 @@
   ;; Stack Smash Protector
   UNSPEC_SSP_SET
   UNSPEC_SSP_TEST
+
+  ;; CFI
+  UNSPECV_LP_ALIGN
+  UNSPECV_LPCLL
+  UNSPECV_LPCML
+  UNSPECV_LPCUL
+  UNSPECV_LPSLL
+  UNSPECV_LPSML
+  UNSPECV_LPSUL
+  UNSPECV_SSPUSH
+  UNSPECV_SSPOP
+  UNSPECV_SSCHKRA
 ])
 
 (define_constants
@@ -169,10 +181,12 @@
 ;; nop		no operation
 ;; ghost	an instruction that produces no real code
 ;; bitmanip	bit manipulation instructions
+;; zisslpcfi	shadow-stack landing-pad control flow integrity
 (define_attr "type"
   "unknown,branch,jump,call,load,fpload,store,fpstore,
    mtc,mfc,const,arith,logical,shift,slt,imul,idiv,move,fmove,fadd,fmul,
-   fmadd,fdiv,fcmp,fcvt,fsqrt,multi,auipc,sfb_alu,nop,ghost,bitmanip,rotate"
+   fmadd,fdiv,fcmp,fcvt,fsqrt,multi,auipc,sfb_alu,nop,ghost,bitmanip,rotate,
+   zisslpcfi"
   (cond [(eq_attr "got" "load") (const_string "load")
 
 	 ;; If a doubleword move uses these expensive instructions,
@@ -2411,11 +2425,7 @@
   [(set (pc) (match_operand 0 "register_operand"))]
   ""
 {
-  operands[0] = force_reg (Pmode, operands[0]);
-  if (Pmode == SImode)
-    emit_jump_insn (gen_indirect_jumpsi (operands[0]));
-  else
-    emit_jump_insn (gen_indirect_jumpdi (operands[0]));
+  riscv_expand_indirect_jump (operands[0]);
   DONE;
 })
 
@@ -2431,15 +2441,7 @@
 	      (use (label_ref (match_operand 1 "" "")))]
   ""
 {
-  if (CASE_VECTOR_PC_RELATIVE)
-      operands[0] = expand_simple_binop (Pmode, PLUS, operands[0],
-					 gen_rtx_LABEL_REF (Pmode, operands[1]),
-					 NULL_RTX, 0, OPTAB_DIRECT);
-
-  if (CASE_VECTOR_PC_RELATIVE && Pmode == DImode)
-    emit_jump_insn (gen_tablejumpdi (operands[0], operands[1]));
-  else
-    emit_jump_insn (gen_tablejumpsi (operands[0], operands[1]));
+  riscv_expand_tablejump (operands[0], operands[1]);
   DONE;
 })
 
@@ -2585,8 +2587,7 @@
 	      (use (match_operand 3 ""))])]	;; struct_value_size_rtx
   ""
 {
-  rtx target = riscv_legitimize_call_address (XEXP (operands[0], 0));
-  emit_call_insn (gen_sibcall_internal (target, operands[1]));
+  riscv_expand_call (NULL_RTX, operands[0], operands[1], true);
   DONE;
 })
 
@@ -2607,8 +2608,7 @@
 	      (use (match_operand 3 ""))])]		;; next_arg_reg
   ""
 {
-  rtx target = riscv_legitimize_call_address (XEXP (operands[1], 0));
-  emit_call_insn (gen_sibcall_value_internal (operands[0], target, operands[2]));
+  riscv_expand_call (operands[0], operands[1], operands[2], true);
   DONE;
 })
 
@@ -2630,8 +2630,7 @@
 	      (use (match_operand 3 ""))])]	;; struct_value_size_rtx
   ""
 {
-  rtx target = riscv_legitimize_call_address (XEXP (operands[0], 0));
-  emit_call_insn (gen_call_internal (target, operands[1]));
+  riscv_expand_call (NULL_RTX, operands[0], operands[1], false);
   DONE;
 })
 
@@ -2653,8 +2652,7 @@
 	      (use (match_operand 3 ""))])]		;; next_arg_reg
   ""
 {
-  rtx target = riscv_legitimize_call_address (XEXP (operands[1], 0));
-  emit_call_insn (gen_call_value_internal (operands[0], target, operands[2]));
+  riscv_expand_call (operands[0], operands[1], operands[2], false);
   DONE;
 })
 
@@ -2766,6 +2764,109 @@
   ""
   [(set_attr "length" "0")]
 )
+
+;; CFI
+
+(define_insn "lp_align"
+  [(unspec_volatile [(const_int 0)] UNSPECV_LP_ALIGN)]
+  "TARGET_ZISSLPCFI"
+  ".align 2"
+  [(set_attr "type" "zisslpcfi")])
+
+(define_insn "lpcll"
+  [(unspec_volatile [(match_operand 0 "immediate_operand" "")] UNSPECV_LPCLL)]
+  "TARGET_ZISSLPCFI"
+  "lpcll\t%0"
+  [(set_attr "type" "zisslpcfi")])
+
+(define_insn "lpcml"
+  [(unspec_volatile [(match_operand 0 "immediate_operand" "")] UNSPECV_LPCML)]
+  "TARGET_ZISSLPCFI"
+  "lpcml\t%0"
+  [(set_attr "type" "zisslpcfi")])
+
+(define_insn "lpcul"
+  [(unspec_volatile [(match_operand 0 "immediate_operand" "")] UNSPECV_LPCUL)]
+  "TARGET_ZISSLPCFI"
+  "lpcul\t%0"
+  [(set_attr "type" "zisslpcfi")])
+
+(define_insn "lpsll"
+  [(unspec_volatile [(match_operand 0 "immediate_operand" "")] UNSPECV_LPSLL)]
+  "TARGET_ZISSLPCFI"
+  "lpsll\t%0"
+  [(set_attr "type" "zisslpcfi")])
+
+(define_insn "lpsml"
+  [(unspec_volatile [(match_operand 0 "immediate_operand" "")] UNSPECV_LPSML)]
+  "TARGET_ZISSLPCFI"
+  "lpsml\t%0"
+  [(set_attr "type" "zisslpcfi")])
+
+(define_insn "lpsul"
+  [(unspec_volatile [(match_operand 0 "immediate_operand" "")] UNSPECV_LPSUL)]
+  "TARGET_ZISSLPCFI"
+  "lpsul\t%0"
+  [(set_attr "type" "zisslpcfi")])
+
+(define_expand "sspush"
+  [(use (match_operand 0 "x1x5_operand"))]
+  "TARGET_ZISSLPCFI"
+{
+  if (TARGET_64BIT)
+    emit_insn (gen_sspushdi (operands[0]));
+  else
+    emit_insn (gen_sspushsi (operands[0]));
+  DONE;
+})
+
+(define_insn "sspush<P:mode>"
+  [(unspec_volatile [(match_operand:P 0 "x1x5_operand" "r")] UNSPECV_SSPUSH)]
+  "TARGET_ZISSLPCFI"
+  "sspush\t%0"
+  [(set_attr "type" "zisslpcfi")
+   (set_attr "mode" "<MODE>")])
+
+(define_expand "sspop"
+  [(set (match_operand 0 "x1x5_operand")
+        (unspec_volatile [(const_int 0)] UNSPECV_SSPOP))]
+  "TARGET_ZISSLPCFI"
+{
+  if (TARGET_64BIT)
+    emit_insn (gen_sspopdi (operands[0]));
+  else
+    emit_insn (gen_sspopsi (operands[0]));
+  DONE;
+})
+
+(define_insn "sspop<P:mode>"
+  [(set (match_operand:P 0 "x1x5_operand" "=r")
+        (unspec_volatile [(const_int 0)] UNSPECV_SSPOP))]
+  "TARGET_ZISSLPCFI"
+  "sspop\t%0"
+  [(set_attr "type" "zisslpcfi")
+   (set_attr "mode" "<MODE>")])
+
+(define_expand "sschkra"
+  [(unspec_volatile [(match_operand 0 "x1x5_operand")
+	             (match_operand 1 "x1x5_operand")]
+   UNSPECV_SSCHKRA)]
+  "TARGET_ZISSLPCFI"
+{
+  if (TARGET_64BIT)
+    emit_insn (gen_sschkradi (operands[0], operands[1]));
+  else
+    emit_insn (gen_sschkrasi (operands[0], operands[1]));
+  DONE;
+})
+
+(define_insn "sschkra<P:mode>"
+  [(unspec_volatile [(match_operand:P 0 "x1x5_operand" "r")
+                     (match_operand:P 1 "x1x5_operand" "r")]
+   UNSPECV_SSCHKRA)]
+  "TARGET_ZISSLPCFI"
+  "sschkra"
+  [(set_attr "type" "zisslpcfi")])
 
 ;; This fixes a failure with gcc.c-torture/execute/pr64242.c at -O2 for a
 ;; 32-bit target when using -mtune=sifive-7-series.  The first sched pass

@@ -239,3 +239,8 @@
 (define_predicate "const63_operand"
   (and (match_code "const_int")
        (match_test "INTVAL (op) == 63")))
+
+(define_predicate "x1x5_operand"
+  (and (match_operand 0 "register_operand")
+       (match_test "REGNO (op) == RETURN_ADDR_REGNUM
+                    || REGNO (op) == T0_REGNUM")))

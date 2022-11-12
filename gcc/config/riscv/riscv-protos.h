@@ -74,6 +74,12 @@ extern bool riscv_expand_block_move (rtx, rtx, rtx);
 extern bool riscv_store_data_bypass_p (rtx_insn *, rtx_insn *);
 extern rtx riscv_gen_gpr_save_insn (struct riscv_frame_info *);
 extern bool riscv_gpr_save_operation_p (rtx);
+extern void riscv_expand_call (rtx, rtx, rtx, bool);
+extern void riscv_expand_indirect_jump (rtx);
+extern void riscv_expand_tablejump (rtx, rtx);
+extern rtx_insn *riscv_prev_ebb_head (rtx_insn *);
+extern uint32_t riscv_get_landing_pad_label ();
+
 
 /* Routines implemented in riscv-c.cc.  */
 void riscv_cpu_cpp_builtins (cpp_reader *);
@@ -89,7 +95,9 @@ extern std::string riscv_arch_str (bool version_p = true);
 
 extern bool riscv_hard_regno_rename_ok (unsigned, unsigned);
 
-rtl_opt_pass * make_pass_shorten_memrefs (gcc::context *ctxt);
+rtl_opt_pass *make_pass_shorten_memrefs (gcc::context *ctxt);
+rtl_opt_pass *make_pass_insert_landing_pad (gcc::context *ctxt);
+
 
 /* Information about one CPU we know about.  */
 struct riscv_cpu_info {
