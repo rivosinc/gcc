@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_RISCV_OPTS_H
 #define GCC_RISCV_OPTS_H
 
+#include "config/riscv/riscv-zisslpcfi.h"
+
 enum riscv_abi_type {
   ABI_ILP32,
   ABI_ILP32E,
@@ -67,11 +69,13 @@ enum stack_protector_guard {
   SSP_GLOBAL			/* global canary */
 };
 
-#define MASK_ZICSR    (1 << 0)
-#define MASK_ZIFENCEI (1 << 1)
+#define MASK_ZICSR     (1 << 0)
+#define MASK_ZIFENCEI  (1 << 1)
+#define MASK_ZISSLPCFI (1 << 2)
 
-#define TARGET_ZICSR    ((riscv_zi_subext & MASK_ZICSR) != 0)
-#define TARGET_ZIFENCEI ((riscv_zi_subext & MASK_ZIFENCEI) != 0)
+#define TARGET_ZICSR     ((riscv_zi_subext & MASK_ZICSR) != 0)
+#define TARGET_ZIFENCEI  ((riscv_zi_subext & MASK_ZIFENCEI) != 0)
+#define TARGET_ZISSLPCFI ((riscv_zi_subext & MASK_ZISSLPCFI) != 0)
 
 #define MASK_ZAWRS   (1 << 0)
 #define TARGET_ZAWRS ((riscv_za_subext & MASK_ZAWRS) != 0)

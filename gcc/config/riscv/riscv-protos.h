@@ -79,6 +79,11 @@ extern void riscv_reinit (void);
 extern poly_uint64 riscv_regmode_natural_size (machine_mode);
 extern bool riscv_v_ext_vector_mode_p (machine_mode);
 extern bool riscv_shamt_matches_mask_p (int, HOST_WIDE_INT);
+extern void riscv_expand_call (rtx, rtx, rtx, bool);
+extern void riscv_expand_indirect_jump (rtx);
+extern void riscv_expand_tablejump (rtx, rtx);
+extern rtx_insn *riscv_prev_ebb_head (rtx_insn *);
+extern uint32_t riscv_get_landing_pad_label ();
 
 /* Routines implemented in riscv-c.cc.  */
 void riscv_cpu_cpp_builtins (cpp_reader *);
@@ -99,6 +104,7 @@ extern bool riscv_hard_regno_rename_ok (unsigned, unsigned);
 
 rtl_opt_pass * make_pass_shorten_memrefs (gcc::context *ctxt);
 rtl_opt_pass * make_pass_vsetvl (gcc::context *ctxt);
+
 
 /* Information about one CPU we know about.  */
 struct riscv_cpu_info {

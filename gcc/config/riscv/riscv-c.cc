@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tm_p.h"
 #include "riscv-subset.h"
+#include "riscv-zisslpcfi.h"
 
 #define builtin_define(TXT) cpp_define (pfile, TXT)
 
@@ -162,6 +163,10 @@ riscv_cpu_cpp_builtins (cpp_reader *pfile)
       sprintf (buf, "__riscv_%s", subset->name.c_str ());
       builtin_define_with_int_value (buf, version_value);
     }
+
+  if (TARGET_ZISSLPCFI && (ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0
+			   || ZISSLPCFI_SS (riscv_zisslpcfi)))
+    builtin_define_with_int_value ("__RISCV_ZISSLPCFI__", riscv_zisslpcfi);
 }
 
 /* Implement "#pragma riscv intrinsic".  */

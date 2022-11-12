@@ -161,6 +161,8 @@ struct GTY(())  machine_function {
      not be considered by the prologue and epilogue.  */
   bool reg_is_wrapped_separately[FIRST_PSEUDO_REGISTER];
 
+  /* Cached Zisslpcfi landing-pad label for this function.  */
+  uint32_t zisslpcfi_lp_label;
 };
 
 /* Information about a single argument.  */
@@ -5265,6 +5267,113 @@ riscv_adjust_libcall_cfi_prologue ()
   return dwarf;
 }
 
+/* Scan backward to find the extended basic-block head.  */
+
+rtx_insn *
+riscv_prev_ebb_head (rtx_insn *insn)
+{
+  rtx_insn *prev = insn;
+  while (prev && !CALL_P (prev) && !LABEL_P (prev))
+    prev = prev_nonnote_nondebug_insn_bb (insn = prev);
+  return insn;
+}
+
+static void
+emit_lpsll_insn ()
+{
+  uint32_t lp_label = riscv_get_landing_pad_label ();
+  rtx lpsll = gen_lpsll (GEN_INT (ZISSLPCFI_LP_LABEL_LOWER (lp_label)));
+  rtx_insn *ebb_head = riscv_prev_ebb_head (get_last_insn ()
+					    ?: get_topmost_sequence ()->last);
+  emit_insn_before (lpsll, ebb_head);
+}
+
+void
+riscv_expand_indirect_jump (rtx jump_target)
+{
+  if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0
+      && ZISSLPCFI_LP_KIND (riscv_zisslpcfi) >= ZISSLPCFI_LP_KIND_SET0)
+    emit_lpsll_insn ();
+  jump_target = force_reg (Pmode, jump_target);
+  if (Pmode == SImode)
+    emit_jump_insn (gen_indirect_jumpsi (jump_target));
+  else
+    emit_jump_insn (gen_indirect_jumpdi (jump_target));
+}
+
+void
+riscv_expand_tablejump (rtx jump_target, rtx label_ref)
+{
+  if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0
+      && ZISSLPCFI_LP_KIND (riscv_zisslpcfi) >= ZISSLPCFI_LP_KIND_SET0)
+    emit_lpsll_insn ();
+  if (CASE_VECTOR_PC_RELATIVE)
+    jump_target = expand_simple_binop (Pmode, PLUS, jump_target,
+				       gen_rtx_LABEL_REF (Pmode, label_ref),
+				       NULL_RTX, 0, OPTAB_DIRECT);
+  if (CASE_VECTOR_PC_RELATIVE && Pmode == DImode)
+    emit_jump_insn (gen_tablejumpdi (jump_target, label_ref));
+  else
+    emit_jump_insn (gen_tablejumpsi (jump_target, label_ref));
+}
+
+static unsigned int
+riscv_make_landing_pad_label ()
+{
+  switch (ZISSLPCFI_LP_KIND (riscv_zisslpcfi))
+    {
+    case ZISSLPCFI_LP_KIND_CHECK0:
+    case ZISSLPCFI_LP_KIND_SET0:
+      return 0;
+    default:
+      gcc_assert (false);
+    }
+}
+
+void
+riscv_expand_call (rtx result, rtx mem, rtx wut, bool sibcall_p)
+{
+  rtx target = riscv_legitimize_call_address (XEXP (mem, 0));
+  if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0
+      && ZISSLPCFI_LP_KIND (riscv_zisslpcfi) >= ZISSLPCFI_LP_KIND_SET0)
+    {
+      if (REG_P (target))
+	{
+	  uint32_t lp_label = riscv_make_landing_pad_label ();
+	  emit_insn (gen_lpsll (GEN_INT (ZISSLPCFI_LP_LABEL_LOWER (lp_label))));
+	  if (ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) >= 2)
+	    emit_insn (gen_lpsml (GEN_INT (ZISSLPCFI_LP_LABEL_MIDDLE (lp_label))));
+	  if (ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) == 3)
+	    emit_insn (gen_lpsul (GEN_INT (ZISSLPCFI_LP_LABEL_UPPER (lp_label))));
+	}
+      else if (plt_symbolic_operand (target, VOIDmode))
+	{
+	  // GKM FIXME: target reloc resolves to .plt.direct
+	}
+      else if (absolute_symbolic_operand (target, VOIDmode))
+	{
+	  // GKM FIXME: target reloc resolves to skip landing pad insns
+	}
+      else
+	gcc_assert (false);
+    }
+
+  if (sibcall_p)
+    {
+      if (result)
+	emit_call_insn (gen_sibcall_value_internal (result, target, wut));
+      else
+	emit_call_insn (gen_sibcall_internal (target, wut));
+    }
+  else
+    {
+      if (result)
+	emit_call_insn (gen_call_value_internal (result, target, wut));
+      else
+	emit_call_insn (gen_call_internal (target, wut));
+    }
+}
+
 static void
 riscv_emit_stack_tie (void)
 {
@@ -5289,6 +5398,12 @@ riscv_expand_prologue (void)
 
   if (cfun->machine->naked_p)
     return;
+
+  if (TARGET_ZISSLPCFI && ZISSLPCFI_SS (riscv_zisslpcfi))
+    {
+      rtx ra = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
+      emit_insn (gen_sspush (ra));
+    }
 
   /* When optimizing for size, call a subroutine to save the registers.  */
   if (riscv_use_save_libcall (frame))
@@ -5429,7 +5544,8 @@ riscv_expand_epilogue (int style)
       return;
     }
 
-  if ((style == NORMAL_RETURN) && riscv_can_use_return_insn ())
+  if ((style == NORMAL_RETURN) && riscv_can_use_return_insn ()
+      && !(TARGET_ZISSLPCFI && ZISSLPCFI_SS (riscv_zisslpcfi)))
     {
       emit_jump_insn (gen_return ());
       return;
@@ -5600,8 +5716,16 @@ riscv_expand_epilogue (int style)
 	emit_jump_insn (gen_riscv_sret ());
       else
 	emit_jump_insn (gen_riscv_uret ());
+      return;
     }
-  else if (style != SIBCALL_RETURN)
+
+  if (TARGET_ZISSLPCFI && ZISSLPCFI_SS (riscv_zisslpcfi))
+    {
+      rtx t0 = gen_rtx_REG (Pmode, T0_REGNUM);
+      emit_insn (gen_sspop (t0));
+      emit_insn (gen_sschkra (ra, t0));
+    }
+  if (style != SIBCALL_RETURN)
     emit_jump_insn (gen_simple_return_internal (ra));
 }
 
@@ -6069,6 +6193,9 @@ riscv_emit_attribute ()
 
   fprintf (asm_out_file, "\t.attribute stack_align, %d\n",
            riscv_stack_boundary / 8);
+
+  if (riscv_zisslpcfi)
+    fprintf (asm_out_file, "\t.attribute zisslpcfi, %d\n", riscv_zisslpcfi);
 }
 
 /* Implement TARGET_ASM_FILE_START.  */
@@ -6214,6 +6341,48 @@ riscv_convert_vector_bits (void)
      TARGET_VECTOR is enabled. The RVV machine modes size remains default
      compile-time constant if TARGET_VECTOR is disabled.  */
   return TARGET_VECTOR ? poly_uint16 (1, 1) : 1;
+}
+
+uint32_t
+riscv_get_landing_pad_label ()
+{
+  return cfun->machine->zisslpcfi_lp_label;
+}
+
+static unsigned int
+riscv_parse_mzisslpcfi (const char *const_string)
+{
+  if (const_string[0] == 0)
+    return ZISSLPCFI_ENCODE_ATTRIBUTE (1, ZISSLPCFI_LP_KIND_CHECK0, 1);
+
+  int lp_width = 0;
+  int lp_kind = 0;
+  int ss = 0;
+  char *string0 = xstrdup (const_string);
+  char *save = NULL;
+  char *string = strtok_r (string0, "+", &save);
+  while (string)
+    {
+      if (strlen (string) == 1 && strchr ("0123", string[0]))
+	lp_width = string[0] - '0';
+      else if (strcmp (string, "check0") == 0)
+	lp_kind = ZISSLPCFI_LP_KIND_CHECK0;
+      else if (strcmp (string, "set0") == 0)
+	lp_kind = ZISSLPCFI_LP_KIND_SET0;
+      else if (strcmp (string, "type") == 0)
+	lp_kind = ZISSLPCFI_LP_KIND_TYPE;
+      else if (strcmp (string, "cfg") == 0)
+	lp_kind = ZISSLPCFI_LP_KIND_CFG;
+      else if (strcmp (string, "ss") == 0)
+	ss = true;
+      else
+	error ("unknown sub-option %qs for %<-mzisslpcfi%>", string);
+      string = strtok_r (NULL, "+", &save);
+    }
+  if (lp_width == 0)
+    lp_kind = 0;
+  free (string0);
+  return ZISSLPCFI_ENCODE_ATTRIBUTE (lp_width, lp_kind, ss);
 }
 
 /* Implement TARGET_OPTION_OVERRIDE.  */
@@ -6369,6 +6538,14 @@ riscv_option_override (void)
 
   /* Convert -march to a chunks count.  */
   riscv_vector_chunks = riscv_convert_vector_bits ();
+
+  if (OPTION_SET_P (riscv_mzisslpcfi_string))
+    {
+      if (!TARGET_ZISSLPCFI)
+	error ("%<-mzisslpcfi%> requires %<-march%> to have the %<zisslpcfi%> extension",
+	       riscv_mzisslpcfi_string);
+      riscv_zisslpcfi = riscv_parse_mzisslpcfi (riscv_mzisslpcfi_string);
+    }
 }
 
 /* Implement TARGET_CONDITIONAL_REGISTER_USAGE.  */
@@ -6652,6 +6829,13 @@ riscv_set_current_function (tree decl)
 
   /* Don't print the above diagnostics more than once.  */
   cfun->machine->attributes_checked_p = 1;
+
+  if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0)
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
+      const_tree t = riscv_get_landing_pad_attribute (decl) ?: TREE_TYPE (decl);
+      cfun->machine->zisslpcfi_lp_label = riscv_make_landing_pad_label (t, name);
+    }
 }
 
 /* Implement TARGET_MERGE_DECL_ATTRIBUTES. */
