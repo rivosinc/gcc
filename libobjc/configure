@@ -3443,93 +3443,12 @@ esac
 
 
 # Add CET specific flags if CET is enabled
-
- # Check whether --enable-cet was given.
-if test "${enable_cet+set}" = set; then :
-  enableval=$enable_cet;
-      case "$enableval" in
-       yes|no|auto) ;;
-       *) as_fn_error $? "Unknown argument to enable/disable cet" "$LINENO" 5 ;;
-                          esac
-
-else
-  enable_cet=auto
-fi
-
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for CET support" >&5
-$as_echo_n "checking for CET support... " >&6; }
-
-# NB: Avoid nested save_CFLAGS and save_LDFLAGS.
-case "$host" in
-  i[34567]86-*-linux* | x86_64-*-linux*)
-    case "$enable_cet" in
-      auto)
-	# Check if target supports multi-byte NOPs
-	# and if assembler supports CET insn.
-	cet_save_CFLAGS="$CFLAGS"
-	CFLAGS="$CFLAGS -fcf-protection"
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main ()
-{
-
-#if !defined(__SSE2__)
-#error target does not support multi-byte NOPs
-#else
-asm ("setssbsy");
-#endif
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-  enable_cet=yes
-else
-  enable_cet=no
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-	CFLAGS="$cet_save_CFLAGS"
-	;;
-      yes)
-	# Check if assembler supports CET.
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main ()
-{
-asm ("setssbsy");
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-
-else
-  as_fn_error $? "assembler with CET support is required for --enable-cet" "$LINENO" 5
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-	;;
-    esac
-    ;;
-  *)
-    enable_cet=no
-    ;;
-esac
-if test x$enable_cet = xyes; then
-  CET_FLAGS="-fcf-protection -mshstk"
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
+GCC_CET_FLAGS(CET_FLAGS)
 XCFLAGS="$XCFLAGS $CET_FLAGS"
+
+# Add CFI specific flags if RISCV Zisslpcfi is enabled
+GCC_RISCV_ZISSLPCFI_FLAGS(RISCV_ZISSLPCFI_FLAGS)
+XCFLAGS="$XCFLAGS $RISCV_ZISSLPCFI_FLAGS"
 
 
 

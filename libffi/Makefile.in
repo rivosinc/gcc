@@ -105,6 +105,7 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/override.m4 \
+	$(top_srcdir)/../config/riscv-zisslpcfi.m4 \
 	$(top_srcdir)/../config/toolexeclibdir.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/../ltoptions.m4 \
 	$(top_srcdir)/../ltsugar.m4 $(top_srcdir)/../ltversion.m4 \
@@ -378,6 +379,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 RANLIB = @RANLIB@
 READELF = @READELF@
+RISCV_ZISSLPCFI_FLAGS = @RISCV_ZISSLPCFI_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -589,7 +591,8 @@ libffi_convenience_la_LIBADD = $(libffi_la_LIBADD)
 libffi_convenience_la_DEPENDENCIES = $(libffi_la_DEPENDENCIES)
 nodist_libffi_convenience_la_SOURCES = $(nodist_libffi_la_SOURCES)
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
-AM_CFLAGS = -Wall -g -fexceptions $(CET_FLAGS) $(am__append_2)
+AM_CFLAGS = -Wall -g -fexceptions $(CET_FLAGS) \
+	$(RISCV_ZISSLPCFI_FLAGS) $(am__append_2)
 @LIBFFI_BUILD_VERSIONED_SHLIB_FALSE@libffi_version_script = 
 @LIBFFI_BUILD_VERSIONED_SHLIB_GNU_TRUE@@LIBFFI_BUILD_VERSIONED_SHLIB_TRUE@libffi_version_script = -Wl,--version-script,libffi.map
 @LIBFFI_BUILD_VERSIONED_SHLIB_SUN_TRUE@@LIBFFI_BUILD_VERSIONED_SHLIB_TRUE@libffi_version_script = -Wl,-M,libffi.map-sun
@@ -600,7 +603,7 @@ libffi_version_info = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libffi_la_LDFLAGS = -no-undefined $(libffi_version_info) $(libffi_version_script) $(LTLDFLAGS) $(AM_LTLDFLAGS)
 libffi_la_DEPENDENCIES = $(libffi_la_LIBADD) $(libffi_version_dep)
 AM_CPPFLAGS = -I. -I$(top_srcdir)/include -Iinclude -I$(top_srcdir)/src
-AM_CCASFLAGS = $(AM_CPPFLAGS) $(CET_FLAGS)
+AM_CCASFLAGS = $(AM_CPPFLAGS) $(CET_FLAGS) $(RISCV_ZISSLPCFI_FLAGS)
 MULTISRCTOP = 
 MULTIBUILDTOP = 
 MULTIDIRS = 

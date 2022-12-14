@@ -13,6 +13,7 @@ sinclude(../config/unwind_ipinfo.m4)
 sinclude(../config/gthr.m4)
 sinclude(../config/sjlj.m4)
 sinclude(../config/cet.m4)
+sinclude(../config/riscv-zisslpcfi.m4)
 
 AC_INIT([GNU C Runtime Library], 1.0,,[libgcc])
 AC_CONFIG_SRCDIR([static-object.mk])
@@ -268,6 +269,9 @@ GCC_CHECK_SJLJ_EXCEPTIONS
 
 GCC_CET_FLAGS(CET_FLAGS)
 AC_SUBST(CET_FLAGS)
+
+GCC_RISCV_ZISSLPCFI_FLAGS(RISCV_ZISSLPCFI_FLAGS)
+AC_SUBST(RISCV_ZISSLPCFI_FLAGS)
 
 AC_ARG_ENABLE([explicit-exception-frame-registration],
   [AC_HELP_STRING([--enable-explicit-exception-frame-registration],

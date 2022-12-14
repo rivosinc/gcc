@@ -164,6 +164,10 @@ XCFLAGS="-D_GNU_SOURCE -Wall -Wextra -fno-exceptions"
 GCC_CET_FLAGS(CET_FLAGS)
 XCFLAGS="$XCFLAGS $CET_FLAGS"
 
+# Add CFI specific flags if RISCV Zisslpcfi is enabled.
+GCC_RISCV_ZISSLPCFI_FLAGS(RISCV_ZISSLPCFI_FLAGS)
+XCFLAGS="$XCFLAGS $RISCV_ZISSLPCFI_FLAGS"
+
 AC_SUBST(XCFLAGS)
 
 if test "${multilib}" = "yes"; then

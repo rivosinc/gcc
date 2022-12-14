@@ -63,6 +63,10 @@ AC_SUBST(CFLAGS)
 GCC_CET_FLAGS(CET_FLAGS)
 AC_SUBST(CET_FLAGS)
 
+# Add CFI specific flags if RISCV Zisslpcfi is enabled
+GCC_RISCV_ZISSLPCFI_FLAGS(RISCV_ZISSLPCFI_FLAGS)
+AC_SUBST(RISCV_ZISSLPCFI_FLAGS)
+
 AC_PROG_LIBTOOL
 
 # Find CPP now so that any conditional tests below won't do it and

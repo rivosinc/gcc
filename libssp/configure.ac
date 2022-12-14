@@ -64,6 +64,11 @@ CFLAGS="$save_CFLAGS"
 # Add CET specific flags if CET is enabled
 GCC_CET_FLAGS(CET_FLAGS)
 XCFLAGS="$XCFLAGS $CET_FLAGS"
+
+# Add CFI specific flags if RISCV Zisslpcfi is enabled
+GCC_RISCV_ZISSLPCFI_FLAGS(RISCV_ZISSLPCFI_FLAGS)
+XCFLAGS="$XCFLAGS $RISCV_ZISSLPCFI_FLAGS"
+
 AC_SUBST(XCFLAGS)
 
 AC_MSG_CHECKING([whether hidden visibility is supported])
