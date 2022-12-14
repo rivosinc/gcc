@@ -138,6 +138,13 @@ if test -n "${with_target_subdir}"; then
   GCC_CET_FLAGS(CET_FLAGS)
   EXTRA_FLAGS="$EXTRA_FLAGS $CET_FLAGS"
 fi
+
+if test -n "${with_target_subdir}"; then
+  # Add CFI specific flags if RISCV Zisslpcfi is enabled.
+  GCC_RISCV_ZISSLPCFI_FLAGS(RISCV_ZISSLPCFI_FLAGS)
+  EXTRA_FLAGS="$EXTRA_FLAGS $RISCV_ZISSLPCFI_FLAGS"
+fi
+
 AC_SUBST(EXTRA_FLAGS)
 
 ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \

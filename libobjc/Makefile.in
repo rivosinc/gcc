@@ -299,6 +299,7 @@ aclocal_deps = \
 	$(srcdir)/../ltversion.m4 \
 	$(srcdir)/../lt~obsolete.m4 \
 	$(srcdir)/../config/cet.m4 \
+	$(srcdir)/../config/riscv-zisslpcfi.m4 \
 	$(srcdir)/acinclude.m4
 
 $(srcdir)/configure: @MAINT@ configure.ac $(srcdir)/aclocal.m4

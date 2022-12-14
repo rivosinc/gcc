@@ -19,7 +19,7 @@ libz_a_SOURCES = $(ZLIB_SOURCES)
 libz_a_CFLAGS = $(AM_CFLAGS) $(PICFLAG)
 endif
 
-AM_CFLAGS = $(CET_FLAGS)
+AM_CFLAGS = $(CET_FLAGS) $(RISCV_ZISSLPCFI_FLAGS)
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and

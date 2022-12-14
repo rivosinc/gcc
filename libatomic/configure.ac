@@ -263,6 +263,10 @@ AS_IF([test "x$enable_werror" != "xno" && test "x$GCC" = "xyes"],
 GCC_CET_FLAGS(CET_FLAGS)
 XCFLAGS="$XCFLAGS $CET_FLAGS"
 
+# Add CFI specifi flags if RISCV Zisslpcfi is enabled
+GCC_RISCV_ZISSLPCFI_FLAGS(RISCV_ZISSLPCFI_FLAGS)
+XCFLAGS="$XCFLAGS $RISCV_ZISSLPCFI_FLAGS"
+
 XCFLAGS="$XCFLAGS $XPCFLAGS"
 
 AC_SUBST(config_path)

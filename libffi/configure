@@ -692,6 +692,7 @@ am__fastdepCCAS_TRUE
 CCASDEPMODE
 CCASFLAGS
 CCAS
+RISCV_ZISSLPCFI_FLAGS
 CET_FLAGS
 am__fastdepCXX_FALSE
 am__fastdepCXX_TRUE
@@ -804,6 +805,7 @@ enable_silent_rules
 enable_generated_files_in_srcdir
 enable_dependency_tracking
 enable_cet
+enable_zisslpcfi
 enable_shared
 enable_static
 with_pic
@@ -1460,6 +1462,8 @@ Optional Features:
   --disable-dependency-tracking
                           speeds up one-time build
   --enable-cet            enable Intel CET in target libraries [default=auto]
+  --enable-zisslpcfi      enable RISCV Zisslpcfi in target libraries
+                          [default=auto]
   --enable-shared[=PKGS]  build shared libraries [default=yes]
   --enable-static[=PKGS]  build static libraries [default=yes]
   --enable-fast-install[=PKGS]
@@ -4960,6 +4964,95 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 esac
 if test x$enable_cet = xyes; then
   CET_FLAGS="-fcf-protection -mshstk"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+
+# Add CFI specific flags if RISCV Zisslpcfi is enabled
+ # Check whether --enable-zisslpcfi was given.
+if test "${enable_zisslpcfi+set}" = set; then :
+  enableval=$enable_zisslpcfi;
+      case "$enableval" in
+       yes|no|auto|+*) ;;
+       *) as_fn_error $? "Unknown argument to enable/disable zisslpcfi" "$LINENO" 5 ;;
+                          esac
+
+else
+  enable_zisslpcfi=auto
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for RISCV Zisslpcfi support" >&5
+$as_echo_n "checking for RISCV Zisslpcfi support... " >&6; }
+
+# NB: Avoid nested save_CFLAGS and save_LDFLAGS.
+case "$host" in
+  riscv*-*-linux*)
+    # Check if compiler and assembler support Zisslpcfi insn.
+    case "$enable_zisslpcfi" in
+      auto)
+	zisslpcfi_save_CFLAGS="$CFLAGS"
+	_mzisslpcfi="-mzisslpcfi"
+	CFLAGS="$CFLAGS $_mzisslpcfi"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+asm ("lpsll 0\n\tlpcll 0\n\tsspush ra\n\tsspop t0\n\tsschkra");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  enable_zisslpcfi=yes
+else
+  enable_zisslpcfi=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CFLAGS="$zisslpcfi_save_CFLAGS"
+	;;
+      no) ;;
+      yes|?*)
+	zisslpcfi_save_CFLAGS="$CFLAGS"
+	case "$enable_zisslpcfi" in
+	yes) _mzisslpcfi="-mzisslpcfi";;
+	?*) _mzisslpcfi="-mzisslpcfi=$enable_zisslpcfi";;
+	esac
+	CFLAGS="$CFLAGS $_mzisslpcfi"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+asm ("lpsll 0\n\tlpcll 0\n\tsspush ra\n\tsspop t0\n\tsschkra");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+
+else
+  as_fn_error $? "assembler with Zisslpcfi support is required for --enable-zisslpcfi" "$LINENO" 5
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CFLAGS="$zisslpcfi_save_CFLAGS"
+	;;
+    esac
+    ;;
+  *)
+    enable_zisslpcfi=no
+    ;;
+esac
+if ! test x$enable_zisslpcfi = xno; then
+  RISCV_ZISSLPCFI_FLAGS="$_mzisslpcfi"
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
 else
@@ -11596,7 +11689,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11599 "configure"
+#line 11692 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11702,7 +11795,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11705 "configure"
+#line 11798 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

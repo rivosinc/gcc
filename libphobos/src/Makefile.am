@@ -30,6 +30,7 @@ AM_DFLAGS= \
 
 # Flags for other kinds of sources
 AM_CFLAGS=$(CET_FLAGS)
+AM_CFLAGS=$(RISCV_ZISSLPCFI_FLAGS)
 
 # Install all D files
 ALL_PHOBOS_INSTALL_DSOURCES = $(PHOBOS_DSOURCES)

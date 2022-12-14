@@ -506,6 +506,7 @@ ACLOCAL_AMFLAGS = -I ../config -I ..
 aclocal_deps = \
 	$(srcdir)/../config/acx.m4 \
 	$(srcdir)/../config/cet.m4 \
+	$(srcdir)/../config/riscv-zisslpcfi.m4 \
 	$(srcdir)/../config/enable.m4 \
 	$(srcdir)/../config/no-executables.m4 \
 	$(srcdir)/../config/override.m4 \

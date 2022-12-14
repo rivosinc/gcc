@@ -98,6 +98,7 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/cet.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/override.m4 \
+	$(top_srcdir)/../config/riscv-zisslpcfi.m4 \
 	$(top_srcdir)/../config/toolexeclibdir.m4 \
 	$(top_srcdir)/../ltoptions.m4 $(top_srcdir)/../ltsugar.m4 \
 	$(top_srcdir)/../ltversion.m4 $(top_srcdir)/../lt~obsolete.m4 \
@@ -326,6 +327,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PICFLAG = @PICFLAG@
 RANLIB = @RANLIB@
+RISCV_ZISSLPCFI_FLAGS = @RISCV_ZISSLPCFI_FLAGS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -403,7 +405,7 @@ zconf.h.in zlib.h zutil.c zutil.h
 @TARGET_LIBRARY_FALSE@toolexeclib_LIBRARIES = libz.a
 @TARGET_LIBRARY_FALSE@libz_a_SOURCES = $(ZLIB_SOURCES)
 @TARGET_LIBRARY_FALSE@libz_a_CFLAGS = $(AM_CFLAGS) $(PICFLAG)
-AM_CFLAGS = $(CET_FLAGS)
+AM_CFLAGS = $(CET_FLAGS) $(RISCV_ZISSLPCFI_FLAGS)
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
