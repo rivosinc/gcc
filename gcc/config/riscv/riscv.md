@@ -2817,10 +2817,11 @@
 	 (match_operand 1 "" ""))
    (clobber (reg:SI RETURN_ADDR_REGNUM))]
   ""
-  "@
-   jalr\t%0
-   call\t%0
-   call\t%0@plt"
+{
+  bool indirect_p = (which_alternative == 0);
+  bool plt_p = (which_alternative == 2);
+  return riscv_emit_call_internal (operands[0], 0, indirect_p, plt_p);
+}
   [(set_attr "type" "call")])
 
 (define_expand "call_value"
@@ -2840,10 +2841,11 @@
 	      (match_operand 2 "" "")))
    (clobber (reg:SI RETURN_ADDR_REGNUM))]
   ""
-  "@
-   jalr\t%1
-   call\t%1
-   call\t%1@plt"
+{
+  bool indirect_p = (which_alternative == 0);
+  bool plt_p = (which_alternative == 2);
+  return riscv_emit_call_internal (operands[1], 1, indirect_p, plt_p);
+}
   [(set_attr "type" "call")])
 
 ;; Call subroutine returning any type.

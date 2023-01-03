@@ -186,7 +186,7 @@
 {
   enum riscv_symbol_type type;
   return (riscv_symbolic_constant_p (op, &type)
-	  && type == SYMBOL_GOT_DISP && !SYMBOL_REF_WEAK (op) && TARGET_PLT);
+	  && type == SYMBOL_GOT_DISP && TARGET_PLT);
 })
 
 (define_predicate "call_insn_operand"

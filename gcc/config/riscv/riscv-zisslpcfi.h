@@ -39,8 +39,6 @@
 
 .attribute zisslpcfi, __RISCV_ZISSLPCFI__
 
-#  define ZISSLPCFI_LP(f) .zisslpcfi_lp f
-
 #  if ZISSLPCFI_LP_KIND (__RISCV_ZISSLPCFI__) <= ZISSLPCFI_LP_KIND_SET0
 #   define _ZISSLPCFI_LP_LABEL_OR_0(n) 0
 #  else
@@ -72,6 +70,12 @@
 #   endif
 #   define _ZISSLPCFI_LPCLL(label) .p2align 2; \
 	   lpcll ZISSLPCFI_LP_LABEL_LOWER (_ZISSLPCFI_LP_LABEL_OR_0 (label))
+#  endif
+
+#  if ZISSLPCFI_LP_WIDTH (__RISCV_ZISSLPCFI__)
+#    define ZISSLPCFI_LP(func, label) .zisslpcfi_lp func, label
+#  else
+#    define ZISSLPCFI_LP(func, label)
 #  endif
 
 #  if ZISSLPCFI_SS (__RISCV_ZISSLPCFI__)
@@ -114,32 +118,38 @@
 # endif
 
 # ifdef _ZISSLPCFI_LPCUL
-#  define ZISSLPCFI_LP_CHECK_BYTES(b0, b1, b2, b3) \
-	  _ZISSLPCFI_LPCLL (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
-	  _ZISSLPCFI_LPCML (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
-	  _ZISSLPCFI_LPCUL (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3))
-#  define ZISSLPCFI_LP_CHECK_FIELDS(lower, middle, upper) \
-	  _ZISSLPCFI_LPCLL (lower); \
-	  _ZISSLPCFI_LPCML (middle); \
-	  _ZISSLPCFI_LPCUL (upper)
+#  define ZISSLPCFI_LP_CHECK_BYTES(func, b0, b1, b2, b3) \
+  ZISSLPCFI_LP (func, ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
+  _ZISSLPCFI_LPCLL (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
+  _ZISSLPCFI_LPCML (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
+  _ZISSLPCFI_LPCUL (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3))
+#  define ZISSLPCFI_LP_CHECK_FIELDS(func, lower, middle, upper) \
+  ZISSLPCFI_LP (func, ZISSLPCFI_LP_ENCODE_LABEL_FIELDS (lower, middle, upper)); \
+  _ZISSLPCFI_LPCLL (lower); \
+  _ZISSLPCFI_LPCML (middle); \
+  _ZISSLPCFI_LPCUL (upper)
 
 # elif defined _ZISSLPCFI_LPCML
-#  define ZISSLPCFI_LP_CHECK_BYTES(b0, b1, b2, b3) \
-	  _ZISSLPCFI_LPCLL (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
-	  _ZISSLPCFI_LPCML (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3))
-#  define ZISSLPCFI_LP_CHECK_FIELDS(lower, middle, upper) \
-	  _ZISSLPCFI_LPCLL (lower); \
-	  _ZISSLPCFI_LPCML (middle)
+#  define ZISSLPCFI_LP_CHECK_BYTES(func, b0, b1, b2, b3) \
+  ZISSLPCFI_LP (func, ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
+  _ZISSLPCFI_LPCLL (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
+  _ZISSLPCFI_LPCML (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3))
+#  define ZISSLPCFI_LP_CHECK_FIELDS(func, lower, middle, upper) \
+  ZISSLPCFI_LP (func, ZISSLPCFI_LP_ENCODE_LABEL_FIELDS (lower, middle, upper)); \
+  _ZISSLPCFI_LPCLL (lower); \
+  _ZISSLPCFI_LPCML (middle)
 
 # elif defined _ZISSLPCFI_LPCLL
-#  define ZISSLPCFI_LP_CHECK_BYTES(b0, b1, b2, b3) \
-	  _ZISSLPCFI_LPCLL (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3))
-#  define ZISSLPCFI_LP_CHECK_FIELDS(lower, middle, upper) \
-	  _ZISSLPCFI_LPCLL (lower)
+#  define ZISSLPCFI_LP_CHECK_BYTES(func, b0, b1, b2, b3) \
+  ZISSLPCFI_LP (func, ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3)); \
+  _ZISSLPCFI_LPCLL (ZISSLPCFI_LP_ENCODE_LABEL_BYTES (b0, b1, b2, b3))
+#  define ZISSLPCFI_LP_CHECK_FIELDS(func, lower, middle, upper) \
+  ZISSLPCFI_LP (func, ZISSLPCFI_LP_ENCODE_LABEL_FIELDS (lower, middle, upper)); \
+  _ZISSLPCFI_LPCLL (lower)
 
 # else
-#  define ZISSLPCFI_LP_CHECK_BYTES(b0, b1, b2, b3)
-#  define ZISSLPCFI_LP_CHECK_FIELDS(lower, middle, upper)
+#  define ZISSLPCFI_LP_CHECK_BYTES(func, b0, b1, b2, b3)
+#  define ZISSLPCFI_LP_CHECK_FIELDS(func, lower, middle, upper)
 # endif
 
 # ifndef ZISSLPCFI_SS_CHECK
@@ -152,7 +162,7 @@
 #  define ZISSLPCFI_SS_POP(reg)
 # endif
 # ifndef ZISSLPCFI_LP
-#  define ZISSLPCFI_LP(f)
+#  define ZISSLPCFI_LP(func, label)
 # endif
 
 #endif // __ASSEMBLER__

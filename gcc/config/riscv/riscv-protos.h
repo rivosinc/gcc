@@ -82,8 +82,10 @@ extern bool riscv_shamt_matches_mask_p (int, HOST_WIDE_INT);
 extern void riscv_expand_call (rtx, rtx, rtx, bool);
 extern void riscv_expand_indirect_jump (rtx);
 extern void riscv_expand_tablejump (rtx, rtx);
-extern rtx_insn *riscv_prev_ebb_head (rtx_insn *);
 extern uint32_t riscv_get_landing_pad_label ();
+extern uint32_t riscv_cfun_machine_zisslpcfi_lp_label ();
+extern void riscv_asm_declare_function_name (FILE *, const char *, tree);
+extern char *riscv_emit_call_internal (rtx, int, bool, bool);
 
 /* Routines implemented in riscv-c.cc.  */
 void riscv_cpu_cpp_builtins (cpp_reader *);

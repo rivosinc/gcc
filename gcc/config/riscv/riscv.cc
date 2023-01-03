@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #define IN_TARGET_CODE 1
 
+#include <sstream>
+
 #define INCLUDE_STRING
 #include "config.h"
 #include "system.h"
@@ -57,9 +59,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "predict.h"
 #include "tree-pass.h"
+#include "print-tree.h"
 #include "opts.h"
 #include "tm-constrs.h"
 #include "rtl-iter.h"
+#include "md5.h"
+#include "cgraph.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -390,6 +395,17 @@ static const struct attribute_spec riscv_attribute_table[] =
      and are not used externally */
   {"RVV sizeless type", 4, 4, false, true, false, true, NULL, NULL},
   {"RVV type", 0, 0, false, true, false, true, NULL, NULL},
+
+  /* Override the function type used as input to hash the landing-pad label.  */
+  { "zisslpcfi_lp_type", 1, 1, true, false, false, false,
+    riscv_handle_fndecl_attribute, NULL },
+  /* Specify the 25-bit landing pad label:
+     * three integers: low 9 bits, middle 8 bits, and top 8 bits of md5 hash
+       (convenient for taking lpcll/lpcml/lpcul operands from disassembly)
+     * four integers: low 8 bits, middle 8 bits, upper 8 bits, top 1 bit.
+       (convenient for taking first seven hex chars from md5 sum).  */
+  { "zisslpcfi_lp_label", 3, 4, true, false, false, false,
+    riscv_handle_fndecl_attribute, NULL },
 
   /* The last attribute spec is set to be NULL.  */
   { NULL,	0,  0, false, false, false, false, NULL, NULL }
@@ -3987,8 +4003,7 @@ riscv_setup_incoming_varargs (cumulative_args_t cum,
 /* Handle an attribute requiring a FUNCTION_DECL;
    arguments as in struct attribute_spec.handler.  */
 static tree
-riscv_handle_fndecl_attribute (tree *node, tree name,
-			       tree args ATTRIBUTE_UNUSED,
+riscv_handle_fndecl_attribute (tree *node, tree name, tree args,
 			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
@@ -3996,6 +4011,75 @@ riscv_handle_fndecl_attribute (tree *node, tree name,
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
       *no_add_attrs = true;
+      return NULL_TREE;
+    }
+  if (is_attribute_p ("zisslpcfi_lp_type", name))
+    {
+      if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
+	{
+	  warning (OPT_Wattributes,
+		   "%qE attribute requires a string argument", name);
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+      return TREE_VALUE (args);
+    }
+  else if (is_attribute_p ("zisslpcfi_lp_label", name))
+    {
+      wide_int v[4];
+      int i = 0;
+      while (args) // != NULL_TREE && TREE_CODE (val) == STRING_CST)
+	{
+	  v[i++] = wi::to_wide (TREE_VALUE (args));
+	  args = TREE_CHAIN (args);
+	}
+      if (i == 3)
+	{
+	  bool gtu0 = wi::gtu_p (v[0], (1 << 9));
+	  bool gtu1 = wi::gtu_p (v[1], (1 << 8));
+	  bool gtu2 = wi::gtu_p (v[2], (1 << 8));
+	  if (gtu0)
+	    warning (OPT_Wattributes, "%qE attribute lower landing-pad "
+		     "label argument beyond range [0..511]", name);
+	  if (gtu1)
+	    warning (OPT_Wattributes, "%qE attribute middle landing-pad "
+		     "label argument beyond range [0..255]", name);
+	  if (gtu2)
+	    warning (OPT_Wattributes, "%qE attribute upper landing-pad "
+		     "label argument beyond range [0..255]", name);
+	  if (gtu0 || gtu1 || gtu2)
+	    {
+	      *no_add_attrs = true;
+	      return NULL_TREE;
+	    }
+	  return wide_int_to_tree
+	    (unsigned_type_node,
+	     wi::add (wi::lshift (v[2], 17),
+		      wi::add (wi::lshift (v[1], 9), v[0])));
+	}
+      else if (i == 4)
+	{
+	  bool gtu0 = wi::gtu_p (v[0], (1 << 8));
+	  bool gtu1 = wi::gtu_p (v[1], (1 << 8));
+	  bool gtu2 = wi::gtu_p (v[2], (1 << 8));
+	  bool gtu3 = wi::gtu_p (v[3], (1 << 1));
+	  if (gtu0 || gtu1 || gtu2)
+	    warning (OPT_Wattributes, "%qE attribute landing-pad label "
+		     "byte argument beyond range [0..255]", name);
+	  if (gtu3)
+	    warning (OPT_Wattributes, "%qE attribute landing-pad label "
+		     "top-bit argument beyond range [0..1]", name);
+	  if (gtu0 || gtu1 || gtu2 || gtu3)
+	    {
+	      *no_add_attrs = true;
+	      return NULL_TREE;
+	    }
+	  return wide_int_to_tree
+	    (unsigned_type_node,
+	     wi::add (wi::lshift (v[3], 24),
+		      wi::add (wi::lshift (v[2], 16),
+			       wi::add (wi::lshift (v[1], 8), v[0]))));
+	}
     }
 
   return NULL_TREE;
@@ -4090,7 +4174,7 @@ riscv_va_start (tree valist, rtx nextarg)
 rtx
 riscv_legitimize_call_address (rtx addr)
 {
-  if (!call_insn_operand (addr, VOIDmode))
+  if (!call_insn_operand (addr, VOIDmode) || SYMBOL_REF_WEAK (addr))
     {
       rtx reg = RISCV_CALL_ADDRESS_TEMP (Pmode);
       riscv_emit_move (reg, addr);
@@ -5267,9 +5351,214 @@ riscv_adjust_libcall_cfi_prologue ()
   return dwarf;
 }
 
+static void
+print_type_stream (const_tree type, std::ostringstream& oss)
+{
+  if (VOID_TYPE_P (type))
+    oss << "void";
+  else if (INTEGRAL_TYPE_P (type))
+    oss << 'i' << TREE_INT_CST_LOW (TYPE_SIZE (type));
+  else if (SCALAR_FLOAT_TYPE_P (type))
+    {
+      if (TYPE_PRECISION (type) == FLOAT_TYPE_SIZE)
+	oss << "float";		// LLVM ???
+      else if (TYPE_PRECISION (type) == DOUBLE_TYPE_SIZE)
+	oss << "double";	// LLVM ???
+      else if (TYPE_PRECISION (type) == LONG_DOUBLE_TYPE_SIZE)
+	oss << "long double";	// LLVM ???
+      else
+	goto lose;
+    }
+  else if (COMPLEX_FLOAT_TYPE_P (type))
+    {
+      oss << "complex ";	// LLVM ???
+      print_type_stream (TREE_TYPE (type), oss);
+    }
+  else if (POINTER_TYPE_P (type))
+    {
+      // Do not expand the details of referenced aggregate types
+      print_type_stream (TREE_TYPE (type), oss);
+      oss << '*';
+    }
+  else if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      const char *name = "?";
+      // cp/decl.cc nullifies TYPE_NAME for builtin __ptrmemfunc_type
+      if (const_tree t = TYPE_NAME (type))
+	{
+	  if (DECL_P (t))
+	    t = DECL_NAME (t);
+	  name = IDENTIFIER_POINTER (t);
+	}
+      oss << "%struct." << name;
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      print_type_stream (TREE_TYPE (type), oss);
+      oss << "[]";
+    }
+  else if (FUNC_OR_METHOD_TYPE_P (type))
+    {
+      print_type_stream (TREE_TYPE (type), oss);
+      oss << " (";
+      int n = 0;
+      function_args_iterator iter;
+      tree t;
+      FOREACH_FUNCTION_ARGS (type, t, iter)
+	{
+	  if (t == void_type_node)
+	    break;
+	  if (n++ > 0)
+	    oss << ", ";
+	  print_type_stream (t, oss);
+	}
+      oss << ")";
+    }
+  else
+    {
+    lose:
+      const char *name = get_tree_code_name (TREE_CODE (type));
+      oss << "<" << name << ">";
+      warning (0, "landing-pad label generator does not understand %s", name);
+      debug_tree (const_cast <tree> (type));
+    }
+}
+
+static const char *
+get_tree_type_string (const_tree t)
+{
+  static hash_map<const_tree, const char *> *tree_type_strings;
+  if (!tree_type_strings)
+    tree_type_strings = hash_map<const_tree, const char *>::create_ggc (32);
+  bool present;
+  const char **slot = &tree_type_strings->get_or_insert (t, &present);
+  if (!present)
+    {
+      std::ostringstream oss;
+      print_type_stream (t, oss);
+      *slot = xstrdup (oss.str ().c_str ());
+    }
+  return *slot;
+}
+
+static uint32_t
+get_type_string_hash (const char *s)
+{
+  static hash_map<const char *, uint32_t> *type_string_hashes;
+  if (!type_string_hashes)
+    type_string_hashes = hash_map<const char *, uint32_t>::create_ggc (32);
+  bool present;
+  uint32_t *slot = &type_string_hashes->get_or_insert (s, &present);
+  if (!present)
+    {
+      struct md5_ctx ctx;
+      unsigned char xx[16];
+      md5_init_ctx (&ctx);
+      md5_process_bytes (s, strlen (s), &ctx);
+      md5_finish_ctx (&ctx, xx);
+      *slot = (xx[0] | (xx[1] << 8) | (xx[2] << 16) | (xx[3] << 24));
+    }
+  return *slot;
+}
+
+static uint32_t
+get_lp_label_for_type (const_tree type)
+{
+  if (!FUNC_OR_METHOD_TYPE_P (type))
+    debug_tree (const_cast <tree> (type));
+  gcc_assert (FUNC_OR_METHOD_TYPE_P (type));
+  int lp_kind = ZISSLPCFI_LP_KIND (riscv_zisslpcfi);
+  if (lp_kind <= ZISSLPCFI_LP_KIND_SET0)
+    return 0;
+  gcc_assert (lp_kind == ZISSLPCFI_LP_KIND_TYPE);
+  static hash_map<const_tree, uint32_t> *func_type_hashes;
+  if (!func_type_hashes)
+    func_type_hashes = hash_map<const_tree, uint32_t>::create_ggc (32);
+  bool present;
+  uint32_t *slot = &func_type_hashes->get_or_insert (type, &present);
+  if (!present)
+    *slot = get_type_string_hash (get_tree_type_string (type));
+  return *slot;
+}
+
+static uint32_t
+get_lp_label_for_decl (tree decl)
+{
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
+  int lp_kind = ZISSLPCFI_LP_KIND (riscv_zisslpcfi);
+  if (lp_kind <= ZISSLPCFI_LP_KIND_SET0)
+    return 0;
+  gcc_assert (lp_kind == ZISSLPCFI_LP_KIND_TYPE);
+  static hash_map<tree_decl_hash, uint32_t> *func_decl_hashes;
+  if (!func_decl_hashes)
+    func_decl_hashes = hash_map<tree_decl_hash, uint32_t>::create_ggc (32);
+  bool present;
+  uint32_t *slot = &func_decl_hashes->get_or_insert (decl, &present);
+  if (!present)
+    {
+      uint32_t lp_label;
+      const_tree attr;
+      if ((attr = lookup_attribute ("zisslpcfi_lp_label",
+				    DECL_ATTRIBUTES (decl))))
+	lp_label = tree_to_uhwi (TREE_VALUE (TREE_VALUE (attr)));
+      else if ((attr = lookup_attribute ("zisslpcfi_lp_type",
+					 DECL_ATTRIBUTES (decl))))
+	lp_label = get_type_string_hash
+	  (TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr))));
+      else if (strcmp("main", IDENTIFIER_POINTER (DECL_NAME (decl))) == 0)
+	lp_label = get_type_string_hash ("i32 (i32, i8**, i8**)");
+      else
+	lp_label = get_lp_label_for_type (TREE_TYPE (decl));
+      *slot = lp_label;
+    }
+  return *slot;
+}
+
+#define DEBUG_ZISSLPCFI_LP 0
+
+static void
+emit_dot_zisslpcfi_lp (tree decl, FILE *stream)
+{
+  // Give the landing-pad label value to the assembler for this function so
+  // the linker can build the proper .plt and .plt.direct entries.
+  fputs ("\t.zisslpcfi_lp ", stream);
+  assemble_name (stream, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  fprintf (stream, ", 0x%x\n", get_lp_label_for_decl (decl));
+}
+
+static void
+maybe_emit_dot_zisslpcfi_lp (tree decl)
+{
+  if (!TARGET_ZISSLPCFI || ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) == 0
+      || ZISSLPCFI_LP_KIND (riscv_zisslpcfi) != ZISSLPCFI_LP_KIND_TYPE)
+    return;
+  if (cgraph_node *node = cgraph_node::get (decl))
+    if (node->ultimate_alias_target ()->only_called_directly_p ())
+      return;
+  // Emit .zisslpcfi_lp directive once per decl
+  static hash_map<tree_decl_hash, int> *dot_zisslpcfi_lp;
+  if (!dot_zisslpcfi_lp)
+    dot_zisslpcfi_lp = hash_map<tree_decl_hash, int>::create_ggc (32);
+  bool present;
+  dot_zisslpcfi_lp->get_or_insert (decl, &present);
+  if (present)
+    return;
+  emit_dot_zisslpcfi_lp (decl, asm_out_file);
+#if DEBUG_ZISSLPCFI_LP
+  emit_dot_zisslpcfi_lp (decl, stderr);
+#endif
+}
+
+void
+riscv_asm_declare_function_name (FILE *stream, const char* name, tree decl)
+{
+  maybe_emit_dot_zisslpcfi_lp (decl);
+  ASM_DECLARE_FUNCTION_NAME (stream, name, decl);
+}
+
 /* Scan backward to find the extended basic-block head.  */
 
-rtx_insn *
+static rtx_insn *
 riscv_prev_ebb_head (rtx_insn *insn)
 {
   rtx_insn *prev = insn;
@@ -5278,10 +5567,15 @@ riscv_prev_ebb_head (rtx_insn *insn)
   return insn;
 }
 
-static void
-emit_lpsll_insn ()
+uint32_t
+riscv_cfun_machine_zisslpcfi_lp_label ()
 {
-  uint32_t lp_label = riscv_get_landing_pad_label ();
+  return cfun->machine->zisslpcfi_lp_label;
+}
+
+static void
+emit_lpsll_insn (uint32_t lp_label)
+{
   rtx lpsll = gen_lpsll (GEN_INT (ZISSLPCFI_LP_LABEL_LOWER (lp_label)));
   rtx_insn *ebb_head = riscv_prev_ebb_head (get_last_insn ()
 					    ?: get_topmost_sequence ()->last);
@@ -5293,7 +5587,7 @@ riscv_expand_indirect_jump (rtx jump_target)
 {
   if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0
       && ZISSLPCFI_LP_KIND (riscv_zisslpcfi) >= ZISSLPCFI_LP_KIND_SET0)
-    emit_lpsll_insn ();
+    emit_lpsll_insn (cfun->machine->zisslpcfi_lp_label);
   jump_target = force_reg (Pmode, jump_target);
   if (Pmode == SImode)
     emit_jump_insn (gen_indirect_jumpsi (jump_target));
@@ -5306,7 +5600,7 @@ riscv_expand_tablejump (rtx jump_target, rtx label_ref)
 {
   if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0
       && ZISSLPCFI_LP_KIND (riscv_zisslpcfi) >= ZISSLPCFI_LP_KIND_SET0)
-    emit_lpsll_insn ();
+    emit_lpsll_insn (cfun->machine->zisslpcfi_lp_label);
   if (CASE_VECTOR_PC_RELATIVE)
     jump_target = expand_simple_binop (Pmode, PLUS, jump_target,
 				       gen_rtx_LABEL_REF (Pmode, label_ref),
@@ -5317,45 +5611,25 @@ riscv_expand_tablejump (rtx jump_target, rtx label_ref)
     emit_jump_insn (gen_tablejumpsi (jump_target, label_ref));
 }
 
-static unsigned int
-riscv_make_landing_pad_label ()
-{
-  switch (ZISSLPCFI_LP_KIND (riscv_zisslpcfi))
-    {
-    case ZISSLPCFI_LP_KIND_CHECK0:
-    case ZISSLPCFI_LP_KIND_SET0:
-      return 0;
-    default:
-      gcc_assert (false);
-    }
-}
-
 void
 riscv_expand_call (rtx result, rtx mem, rtx wut, bool sibcall_p)
 {
-  rtx target = riscv_legitimize_call_address (XEXP (mem, 0));
-  if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0
+  rtx addr = XEXP (mem, 0);
+  rtx target = riscv_legitimize_call_address (addr);
+  int lp_width = ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi);
+  if (register_operand (addr, VOIDmode)
+      && TARGET_ZISSLPCFI && lp_width > 0
       && ZISSLPCFI_LP_KIND (riscv_zisslpcfi) >= ZISSLPCFI_LP_KIND_SET0)
     {
-      if (REG_P (target))
-	{
-	  uint32_t lp_label = riscv_make_landing_pad_label ();
-	  emit_insn (gen_lpsll (GEN_INT (ZISSLPCFI_LP_LABEL_LOWER (lp_label))));
-	  if (ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) >= 2)
-	    emit_insn (gen_lpsml (GEN_INT (ZISSLPCFI_LP_LABEL_MIDDLE (lp_label))));
-	  if (ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) == 3)
-	    emit_insn (gen_lpsul (GEN_INT (ZISSLPCFI_LP_LABEL_UPPER (lp_label))));
-	}
-      else if (plt_symbolic_operand (target, VOIDmode))
-	{
-	  // GKM FIXME: target reloc resolves to .plt.direct
-	}
-      else if (absolute_symbolic_operand (target, VOIDmode))
-	{
-	  // GKM FIXME: target reloc resolves to skip landing pad insns
-	}
-      else
-	gcc_assert (false);
+      tree t = MEM_EXPR (mem);
+      if (TREE_CODE (t) == MEM_REF)
+	t = TREE_TYPE (t);
+      uint32_t lp_label = get_lp_label_for_type (t);
+      emit_insn (gen_lpsll (GEN_INT (ZISSLPCFI_LP_LABEL_LOWER (lp_label))));
+      if (lp_width >= 2)
+	emit_insn (gen_lpsml (GEN_INT (ZISSLPCFI_LP_LABEL_MIDDLE (lp_label))));
+      if (lp_width == 3)
+	emit_insn (gen_lpsul (GEN_INT (ZISSLPCFI_LP_LABEL_UPPER (lp_label))));
     }
 
   if (sibcall_p)
@@ -5372,6 +5646,20 @@ riscv_expand_call (rtx result, rtx mem, rtx wut, bool sibcall_p)
       else
 	emit_call_insn (gen_call_internal (target, wut));
     }
+}
+
+char *
+riscv_emit_call_internal (rtx target, int i, bool indirect_p, bool plt_p)
+{
+  static char insn_buf[16];
+  if (indirect_p)
+    sprintf (insn_buf, "jalr\t%%%d", i);
+  else
+    {
+      maybe_emit_dot_zisslpcfi_lp (SYMBOL_REF_DECL (target));
+      sprintf (insn_buf, "call\t%%%d%s", i, (plt_p ? "@plt" : ""));
+    }
+  return insn_buf;
 }
 
 static void
@@ -6353,7 +6641,7 @@ static unsigned int
 riscv_parse_mzisslpcfi (const char *const_string)
 {
   if (const_string[0] == 0)
-    return ZISSLPCFI_ENCODE_ATTRIBUTE (1, ZISSLPCFI_LP_KIND_CHECK0, 1);
+    return ZISSLPCFI_ENCODE_ATTRIBUTE (2, ZISSLPCFI_LP_KIND_TYPE, 1);
 
   int lp_width = 0;
   int lp_kind = 0;
@@ -6827,15 +7115,11 @@ riscv_set_current_function (tree decl)
       gcc_assert (cfun->machine->interrupt_mode != UNKNOWN_MODE);
     }
 
+  if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0)
+    cfun->machine->zisslpcfi_lp_label = get_lp_label_for_decl (decl);
+
   /* Don't print the above diagnostics more than once.  */
   cfun->machine->attributes_checked_p = 1;
-
-  if (TARGET_ZISSLPCFI && ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) > 0)
-    {
-      const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
-      const_tree t = riscv_get_landing_pad_attribute (decl) ?: TREE_TYPE (decl);
-      cfun->machine->zisslpcfi_lp_label = riscv_make_landing_pad_label (t, name);
-    }
 }
 
 /* Implement TARGET_MERGE_DECL_ATTRIBUTES. */

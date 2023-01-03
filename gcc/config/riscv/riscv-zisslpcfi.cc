@@ -42,6 +42,8 @@
 #include "tree-pass.h"
 #include "cgraph.h"
 #include "output.h"
+#include "print-tree.h"
+#include "diagnostic.h"
 
 /* This pass implements forward-CFI landing pad checks for RISCV. This is
    a security feature similar to BTI (branch target identification) in
@@ -95,7 +97,7 @@ emit_aligned_lpcll (rtx_insn *code_label, rtx lp_label_rtx = NULL_RTX)
 {
   if (lp_label_rtx == NULL_RTX)
     {
-      uint32_t lp_label = riscv_get_landing_pad_label ();
+      uint32_t lp_label = riscv_cfun_machine_zisslpcfi_lp_label ();
       lp_label_rtx = GEN_INT (ZISSLPCFI_LP_LABEL_LOWER (lp_label));
     }
   emit_insn_before (gen_lp_align (), code_label);
@@ -110,7 +112,7 @@ emit_aligned_lpcll (rtx_insn *code_label, rtx lp_label_rtx = NULL_RTX)
 static void
 emit_lpcxl_insns (rtx_insn *insn)
 {
-  uint32_t lp_label = riscv_get_landing_pad_label ();
+  uint32_t lp_label = riscv_cfun_machine_zisslpcfi_lp_label ();
   insn = emit_insn_before
     (gen_lpcll (GEN_INT (ZISSLPCFI_LP_LABEL_LOWER (lp_label))), insn);
   if (ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) >= 2)
@@ -119,11 +121,6 @@ emit_lpcxl_insns (rtx_insn *insn)
   if (ZISSLPCFI_LP_WIDTH (riscv_zisslpcfi) == 3)
     insn = emit_insn_after
       (gen_lpcul (GEN_INT (ZISSLPCFI_LP_LABEL_UPPER (lp_label))), insn);
-
-  fputs ("\t.zisslpcfi_lp ", asm_out_file);
-  assemble_name (asm_out_file,
-		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (cfun->decl)));
-  putc ('\n', asm_out_file);
 }
 
 /* Insert landing-pad check instructions.  This is a late RTL pass that runs
@@ -160,19 +157,17 @@ rest_of_insert_landing_pad (void)
 		rtx_insn *next = next_nonnote_nondebug_insn (code_label);
 		if (! landing_pad_insn_p (next, UNSPECV_LPCLL))
 		  emit_aligned_lpcll (code_label);
-		if (! BARRIER_P (prev) && (ZISSLPCFI_LP_KIND (riscv_zisslpcfi)
-					   >= ZISSLPCFI_LP_KIND_SET0))
-		  {
-		    /* No barrier before this point means that the previous
-		       block could fall-through and hit LPCLL. It is more
-		       expedient to set LPLR than to branch around LPCLL.  */
-		    prev = riscv_prev_ebb_head (prev);
-		    if (! landing_pad_insn_p (prev, UNSPECV_LPSLL))
-		      emit_insn_before
-			(gen_lpsll (GEN_INT
-				    (ZISSLPCFI_LP_LABEL_LOWER
-				     (riscv_get_landing_pad_label ()))), prev);
-		  }
+		if (ZISSLPCFI_LP_KIND (riscv_zisslpcfi) >= ZISSLPCFI_LP_KIND_SET0
+		    && ! BARRIER_P (prev)
+		    && ! landing_pad_insn_p (prev, UNSPECV_LPSLL))
+		  /* No barrier before the label means that the previous
+		     block could fall-through and hit LPCLL. It is more
+		     expedient to set LPL.L than to branch around LPCLL.  */
+		  emit_insn_after
+		    (gen_lpsll (GEN_INT
+				(ZISSLPCFI_LP_LABEL_LOWER
+				 (riscv_cfun_machine_zisslpcfi_lp_label ()))),
+		     prev);
 	      }
 	  }
 

@@ -981,6 +981,12 @@ while (0)
 
 #define ASM_COMMENT_START "#"
 
+#ifndef IN_TARGET_CODE
+#undef ASM_DECLARE_FUNCTION_NAME
+#define ASM_DECLARE_FUNCTION_NAME(STR, NAME, DECL)	\
+  riscv_asm_declare_function_name (STR, NAME, DECL)
+#endif
+
 #undef SIZE_TYPE
 #define SIZE_TYPE (POINTER_SIZE == 64 ? "long unsigned int" : "unsigned int")
 

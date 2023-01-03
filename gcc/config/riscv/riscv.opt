@@ -139,7 +139,7 @@ The ISA-dependent CSR are only valid when the specific ISA is set.  The
 read-only CSR can not be written by the CSR instructions.
 
 mzisslpcfi
-Target RejectNegative Alias(mzisslpcfi=, +1+check0+ss)
+Target RejectNegative Alias(mzisslpcfi=, +2+type+ss)
 
 mzisslpcfi=
 Target RejectNegative Joined Var(riscv_mzisslpcfi_string) Save
