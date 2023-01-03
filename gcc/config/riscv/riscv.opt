@@ -133,7 +133,7 @@ Take advantage of linker relaxations to reduce the number of instructions
 required to materialize symbol addresses.
 
 mzisslpcfi
-Target RejectNegative Alias(mzisslpcfi=, +1+check0+ss)
+Target RejectNegative Alias(mzisslpcfi=, +2+type+ss)
 
 mzisslpcfi=
 Target RejectNegative Joined Var(riscv_mzisslpcfi_string) Save

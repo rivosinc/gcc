@@ -42,6 +42,8 @@
 #include "tree-pass.h"
 #include "cgraph.h"
 #include "output.h"
+#include "print-tree.h"
+#include "diagnostic.h"
 
 /* This pass implements forward-CFI landing pad checks for RISCV. This is
    a security feature similar to BTI (branch target identification) in

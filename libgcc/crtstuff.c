@@ -470,7 +470,7 @@ CRT_CALL_STATIC_FUNCTION (__LIBGCC_INIT_SECTION_ASM_OP__,
    call in another function.  */
 
 static void __attribute__((used))
-frame_dummy (void)
+frame_dummy (int argc, char **argv, char **envp)
 {
 #ifdef USE_EH_FRAME_REGISTRY
   static struct object object;
