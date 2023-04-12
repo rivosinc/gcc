@@ -299,6 +299,12 @@ in
 
       installTargets = optional stripped "install-strip";
 
+      # Remove prefixed tools that may otherwise leak past wrappers.
+      postInstall =
+        optionalString (targetPlatform == hostPlatform && hostPlatform == buildPlatform) ''
+        rm -f $out/bin/${buildPlatform.config}-*
+      '';
+
       # https://gcc.gnu.org/install/specific.html#x86-64-x-solaris210
       ${
         if hostPlatform.system == "x86_64-solaris"
