@@ -1,17 +1,27 @@
 diff --git a/gcc/cp/Make-lang.in b/gcc/cp/Make-lang.in
-index 23d98c897b5..ef598f16c49 100644
+index 4ee26fad93d..96674ff1361 100644
 --- a/gcc/cp/Make-lang.in
 +++ b/gcc/cp/Make-lang.in
-@@ -59,10 +59,8 @@ CFLAGS-cp/module.o += -DHOST_MACHINE=\"$(host)\" \
+@@ -59,21 +59,7 @@ CFLAGS-cp/module.o += -DHOST_MACHINE=\"$(host)\" \
  
  # In non-release builds, use a date-related module version.
  ifneq ($(DEVPHASE_c),)
--# Some date's don't grok 'r', if so, simply use today's
--# date (don't bootstrap at midnight).
--MODULE_VERSION := $(shell date -r $(srcdir)/cp/module.cc '+%y%m%d-%H%M' \
--  2>/dev/null || date '+%y%m%d-0000' 2>/dev/null || echo 0)
-+
-+MODULE_VERSION := 220101-0000
- 
- CFLAGS-cp/module.o += -DMODULE_VERSION='($(subst -,,$(MODULE_VERSION))U)'
+-# Some date's don't grok 'r', if so, simply use today's date,
+-# but use date from previous stage if bootstrapping to avoid breaking
+-# bootstraps across midnight.
+-s-cp-module-version: $(srcdir)/cp/module.cc
+-	MODULE_VERSION=`if date -r $(srcdir)/cp/module.cc '+%y%m%d%H%MU' \
+-			  2>/dev/null; then :; \
+-			elif test ../prev-gcc/s-cp-module-version -nt \
+-			       $(srcdir)/cp/module.cc; then \
+-			  cat ../prev-gcc/s-cp-module-version; \
+-			else \
+-			  date '+%y%m%d0000U' 2>/dev/null; \
+-			fi`; \
+-	echo $${MODULE_VERSION} > s-cp-module-version
+-cp/module.o: s-cp-module-version
+-CFLAGS-cp/module.o += -DMODULE_VERSION='$(shell cat s-cp-module-version)'
++CFLAGS-cp/module.o += -DMODULE_VERSION='2201010000U'
  endif
+ 
+ # Create the compiler driver for g++.
