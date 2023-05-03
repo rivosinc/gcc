@@ -70,4 +70,8 @@ assert langAda -> gnatboot != null;
   # is in fact building a cross compiler although it doesn't believe it.
   + lib.optionalString (targetPlatform.config == hostPlatform.config && targetPlatform != hostPlatform) ''
     substituteInPlace configure --replace is_cross_compiler=no is_cross_compiler=yes
+    # Be explicit to fix cross from the same host/target triple.
+    # The logic across gcc/configure.ac and libstdc++v3/acinclude.m4
+    # isn't consistent otherwise.
+    substituteInPlace gcc/configure --replace 'test x$host != x$target' "true"
   ''
