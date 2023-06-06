@@ -52,6 +52,7 @@
   cloog, # unused; just for compat with gcc4, as we override the parameter on some places
   buildPackages,
   libxcrypt,
+  python3,
 }:
 # LTO needs libelf and zlib.
 assert libelf != null -> zlib != null;
@@ -200,6 +201,7 @@ in
       nativeBuildInputs =
         [flex texinfo which gettext]
         ++ (optional (perl != null) perl)
+        ++ (optional (targetPlatform.isRiscV) python3)
         ++ (optional langAda gnatboot);
 
       # For building runtime libs
